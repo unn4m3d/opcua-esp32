@@ -19,7 +19,6 @@
 
 #include "ethernet_connect.h"
 #include "open62541.h"
-#include "DHT22.h"
 #include "model.h"
 
 #define EXAMPLE_ESP_MAXIMUM_RETRY 10
@@ -70,8 +69,8 @@ UA_ServerConfig_setUriName(UA_ServerConfig *uaServerConfig, const char *uri, con
 static void opcua_task(void *arg)
 {
     //BufferSize's got to be decreased due to latest refactorings in open62541 v1.2rc.
-    UA_Int32 sendBufferSize = 16384;
-    UA_Int32 recvBufferSize = 16384;
+    UA_Int32 sendBufferSize = 8192;
+    UA_Int32 recvBufferSize = 8192;
 
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
@@ -92,12 +91,12 @@ static void opcua_task(void *arg)
     config->mdnsConfig.serverCapabilities = caps;
     // We need to set the default IP address for mDNS since internally it's not able to detect it.
     tcpip_adapter_ip_info_t default_ip;
-    
-    #ifdef CONFIG_EXAMPLE_CONNECT_ETHERNET
+
+#ifdef CONFIG_EXAMPLE_CONNECT_ETHERNET
     tcpip_adapter_if_t tcpip_if = TCPIP_ADAPTER_IF_ETH;
-    #else
+#else
     tcpip_adapter_if_t tcpip_if = TCPIP_ADAPTER_IF_STA;
-    #endif
+#endif
 
     esp_err_t ret = tcpip_adapter_get_ip_info(tcpip_if, &default_ip);
     if ((ESP_OK == ret) && (default_ip.ip.addr != INADDR_ANY))
@@ -115,10 +114,7 @@ static void opcua_task(void *arg)
     UA_ServerConfig_setCustomHostname(config, hostName);
 
     /* Add Information Model Objects Here */
-    // addLEDMethod(server);
-    addCurrentTemperatureDataSourceVariable(server);
-    addRelay0ControlNode(server);
-    addRelay1ControlNode(server);
+    addServo0ControlNode(server);
 
     ESP_LOGI(TAG, "Heap Left : %d", xPortGetFreeHeapSize());
     UA_StatusCode retval = UA_Server_run_startup(server);
@@ -142,7 +138,6 @@ void time_sync_notification_cb(struct timeval *tv)
 
 static void initialize_sntp(void)
 {
-    ESP_LOGI(SNTP_TAG, "Initializing SNTP");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_setservername(0, "pool.ntp.org");
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
@@ -169,7 +164,6 @@ static bool obtain_time(void)
     return timeinfo.tm_year > (2016 - 1900);
 }
 
-
 static void opc_event_handler(void *arg, esp_event_base_t event_base,
                               int32_t event_id, void *event_data)
 {
@@ -190,16 +184,15 @@ static void opc_event_handler(void *arg, esp_event_base_t event_base,
 
     if (!isServerCreated)
     {
-        xTaskCreatePinnedToCore(opcua_task, "opcua_task", 24336, NULL, 10, NULL, 0);
+        xTaskCreatePinnedToCore(opcua_task, "opcua_task", 24336, NULL, 1, NULL, 0);
         ESP_LOGI(MEMORY_TAG, "Heap size after OPC UA Task : %d", esp_get_free_heap_size());
         isServerCreated = true;
     }
 }
 
 static void disconnect_handler(void *arg, esp_event_base_t event_base,
-                              int32_t event_id, void *event_data)
+                               int32_t event_id, void *event_data)
 {
-
 }
 
 static void connection_scan(void)
