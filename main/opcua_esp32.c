@@ -16,6 +16,7 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
+#include "model.hpp"
 
 #include "ethernet_connect.h"
 #include "open62541.h"
@@ -114,7 +115,7 @@ static void opcua_task(void *arg)
     UA_ServerConfig_setCustomHostname(config, hostName);
 
     /* Add Information Model Objects Here */
-    addServo0ControlNode(server);
+    registerNodes(server);
 
     ESP_LOGI(TAG, "Heap Left : %d", xPortGetFreeHeapSize());
     UA_StatusCode retval = UA_Server_run_startup(server);
